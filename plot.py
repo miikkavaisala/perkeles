@@ -62,7 +62,7 @@ for fnum in range(360):
         print(np.shape(colden_map))
 
         fig = plt.figure()
-        plt.imshow(colden_map)
+        plt.imshow(colden_map, cmap=plt.get_cmap('inferno'))
 
         fnum = str(fnum)
         framenum = fnum.zfill(4)
