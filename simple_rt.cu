@@ -31,9 +31,14 @@
 void 
 smiley_face(float* domain, int idx, float xx, float yy, float zz, float size, float radius1, float radius2)
 {
+    //float rr    = sqrt(xx*xx + yy*yy + zz*zz); 
+    //float theta = acos(zz/rr) * 180.0/PI;
+    //float phi   = atan2(yy, xx) * 180.0/PI; 
+
     float rr    = sqrt(xx*xx + yy*yy + zz*zz); 
-    float theta = acos(zz/rr) * 180.0/PI;
-    float phi   = atan2(yy, xx) * 180.0/PI; 
+    float theta = acos(xx/rr) * 180.0/PI;
+    float phi   = atan2(yy, zz) * 180.0/PI + 45.0;
+
     domain[idx] = 1.0;
     
     float rmax = (size/2.0);
@@ -44,15 +49,15 @@ smiley_face(float* domain, int idx, float xx, float yy, float zz, float size, fl
     } else if (rr < radius2) {
         domain[idx] = 1.0;
     } else {
-        if (theta > 30.0 && theta < 60.0) {
-            if ((phi > 0.0  && phi < 30.0) || (phi > 60.0  && phi < 90.0)) {
-                domain[idx] = 0.0;
+        if (theta > 40.0 && theta < 80.0) {
+            if ((phi > 0.0  && phi < 40.0) || (phi > 50.0  && phi < 90.0)) {
+                domain[idx] = 10.0;
             } else {
                 domain[idx] = 1.0;
             }
         } else if ((theta > 120.0 && theta < 150.0)) {
             if (phi > 0.0  && phi < 90.0) {
-                domain[idx] = 0.0;
+                domain[idx] = 5.0;
             } else {
                 domain[idx] = 1.0;
             }
@@ -171,14 +176,23 @@ rotate(float* d_domain, float* d_domain_buffer, const int NX, const float dx, co
     int kk = threadIdx.z + blockIdx.z*blockDim.z;
     int ind_target = ii + jj*NX + kk*NX*NX; 
     
-    radians = stride * PI/180.0   
+    float radians = stride * PI/180.0;
 
-    int ind_source = ii_tgt + jj*NX_tgt + kk*NX*NX_tgt; 
+    float x_tgt = (float(jj)-float(NX)/2)*cos(radians) - (float(kk)-float(NX)/2)*sin(radians);
+    float z_tgt = (float(jj)-float(NX)/2)*sin(radians) + (float(kk)-float(NX)/2)*cos(radians);
 
-    d_domain_buffer[ind_target] = d_domain[ind_target];
+    int jj_tgt = floor(x_tgt)+NX/2;
+    int kk_tgt = floor(z_tgt)+NX/2;
 
-    //if (d_domain[ind_target] > 0.0) 
-    //printf("d_domain_buffer[%i] %f d_domain[%i] %f   ", ind_target, d_domain_buffer[ind_target], ind_target, d_domain[ind_target]); 
+    int ind_source;
+    if (jj_tgt >= 0 && jj_tgt < NX && kk_tgt >= 0 && kk_tgt < NX) {
+        ind_source = ii + jj_tgt*NX + kk_tgt*NX*NX; 
+    } else {
+        ind_source = ind_target;
+    }
+
+    d_domain_buffer[ind_target] = d_domain[ind_source];
+
 }
 
 // Integrator for the column density. The for loop is needed bacause the depth
@@ -188,15 +202,11 @@ integrate_column_density(float* d_domain, float* d_image, const  int ind_pix, co
 {
     //Assume that the "detector" is initially empty
     d_image[ind_pix] = 0.0; 
-    //OK printf("%i %f   ", NX, dx);
     //Integrate in depth. 
     for (int kk = 0; kk<NX; kk++) {
         int ind = ind_pix + kk*NX*NX;
         d_image[ind_pix] += dx*d_domain[ind];
-        //printf("%f %f %i %i    ", d_image[ind_pix], d_domain[ind], ind_pix, ind);
     }
- //   printf(" END LOOP ");
- //   printf("DEVICE d_image %f ind_pix %i \n", d_image[ind_pix], ind_pix);
 }
 
 
@@ -206,11 +216,8 @@ __global__ void
 make_map(float* d_domain, float* d_image, int NX, float dx) 
 {
     int ii = threadIdx.x + blockIdx.x*blockDim.x;
-    int jj = threadIdx.y + blockIdx.y*blockDim.y;
-    int ind_pix = ii + jj*NX; 
-
-    //printf("threadIdx.x %i blockIdx.x %i blockDim.x %i    ", threadIdx.x, blockIdx.x, blockDim.x);
-    //printf("NX %i, dx %f, ii %i jj %i ind_pix %i    ", NX, dx, ii, jj, ind_pix);
+    int kk = threadIdx.y + blockIdx.y*blockDim.y;
+    int ind_pix = ii + kk*NX; 
 
     integrate_column_density(d_domain, d_image, ind_pix, NX, dx);
     
@@ -224,11 +231,10 @@ main()
     float *h_domain_buffer, *d_domain_buffer;
     float *h_image,  *d_image;
     float dx = 1.0, radius1 = 0.9, radius2 = 0.6;
-    //int NX = 256;
-    int NX = 16;
+    int NX = 256;
 
     float max_rot = 360.0; //in deg
-    float stride  = 60.0;    //deg 
+    float stride  = 1.0;    //deg 
 
     size_t domain_size = sizeof(float) * NX*NX*NX;
     size_t image_size  = sizeof(float) *    NX*NX;
@@ -279,17 +285,16 @@ main()
         make_map<<<RAD_numBlocks, RAD_threadsPerBlock>>>(d_domain, d_image, NX, dx); 
 	cudaDeviceSynchronize();
 
-        //Make rotation
-        rotate<<<ROT_numBlocks, ROT_threadsPerBlock>>>(d_domain, d_domain_buffer, NX, dx, stride);
-        cudaDeviceSynchronize();
-
-
         //Send image to host memory
         cudaMemcpy(h_image, d_image, image_size, cudaMemcpyDeviceToHost);    
         cudaDeviceSynchronize();
 
         //Save result
         write_map(h_image, NX, image_size, angle);
+
+        //Make rotation
+        rotate<<<ROT_numBlocks, ROT_threadsPerBlock>>>(d_domain, d_domain_buffer, NX, dx, stride);
+        cudaDeviceSynchronize();
 
         //Swat buffer pointer. 
         swap_pointers(&d_domain, &d_domain_buffer);
