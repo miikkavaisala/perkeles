@@ -162,7 +162,8 @@ swap_pointers(float** aa, float** bb)
 }
 
 //Tranfer values from the chosed cell. This completely lacks any intertolation,
-//so it quite stupid. However, enough for the demo purposes for now.
+//so it quite stupid. However, enough for the demo purposes for now. Will
+//result in some noticeable graphical errors. 
 __device__ int
 get_ind_source_stupid(const int ii, const int jj, const int kk, const int NX, 
                       const float stride) 
