@@ -47,7 +47,7 @@ def read_bin(fname, fdir, fnum, numtype=np.float32):
      
     return array, NX, read_ok
 
-
+savename = "happy_face"
 
 for fnum in range(360): 
     colden_map, NX, read_ok = read_bin("happy_face", "", fnum)
@@ -62,12 +62,12 @@ for fnum in range(360):
         print(np.shape(colden_map))
 
         fig = plt.figure()
-        plt.imshow(colden_map, cmap=plt.get_cmap('inferno'), origin='lower')
+        plt.imshow(colden_map, cmap=plt.get_cmap('inferno'), origin='lower', vmin=0.0, vmax=3000.0)
 
         fnum = str(fnum)
         framenum = fnum.zfill(4)
 
-        plt.savefig('colden_%s.png' % (framenum))
-        print('Saved colden_%s.png' % (framenum))
+        plt.savefig('%s_%s.png' % (savename, framenum))
+        print('Saved %s_%s.png' % (savename, framenum))
         plt.close(fig)
 
