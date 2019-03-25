@@ -32,10 +32,6 @@ void
 happy_face(float* domain, int idx, float xx, float yy, float zz, float size, 
             float radius1, float radius2)
 {
-    //float rr    = sqrt(xx*xx + yy*yy + zz*zz); 
-    //float theta = acos(zz/rr) * 180.0/PI;
-    //float phi   = atan2(yy, xx) * 180.0/PI; 
-
     float rr    = sqrt(xx*xx + yy*yy + zz*zz); 
     float theta = acos(xx/rr) * 180.0/PI;
     float phi   = atan2(yy, zz) * 180.0/PI + 45.0;
@@ -134,8 +130,6 @@ write_map(float* h_image, int NX, size_t image_size, float angle)
    for (size_t i = 0; i < n; ++i) {
        const float point_val = h_image[i];
        float write_buf =  (float) point_val;
-
-    //   printf(" %f ", write_buf);
 
        fwrite(&write_buf, sizeof(float), 1, save_ptr);
    }
@@ -251,8 +245,45 @@ make_map(float* d_domain, float* d_image, int NX, float dx)
 // DOWNLOAD FROM: https://github.com/miikkavaisala/perkeles //
 //                                                          //
 //////////////////////////////////////////////////////////////
-       
-// The main() is run on the host, from which the CUDA kernels are called.      
+    
+// **BASICS OF GPU PROGRAMMING WITH CUDA**
+
+// 1. Increasing demands of computation require exotic approaches. Graphics
+//    processing units (GPUs) are a popular tool for accelerating computation.
+//    --> A multi-GPU node can be really compact and affordable for its
+//        computing power; assuming you write GPU compatible code (a big issue
+//        for most users). 
+
+// 2. Popular uses for GPUs:
+//    * Graphics (e.g. almost all computer games.)
+//    * Blockchain / Cryptocurrencies (e.g. Dogecoin)
+//    * Machine learning (E.g. with Tensorflow)
+//    * Radiative transfer. (E.g. this demo here, SOC)
+//    * Astronomical data reduction/analysis (??? glCLEAN, FADRA, FATBOY)
+//    * Fluid dynamics / MHD (E.g. Astaroth, Fargo3D, Gamer-2)
+
+// 3. GPUs are made for computing a humongous number of floating point
+//    operations in parallel.
+//    --> Good tool when performance is bound by computation. Bad tool when
+//        bound by memory. Some uses are more equal than others. 
+
+// 4. Known API: 
+//    * CUDA, by Nvidia (most popular, used here)
+//    * OpenCL, by Khronos Group (open standard)
+//    * OpenACC, by OpenACC.org (directive based, like OpenMP) 
+
+// 5. Programming GPUs is not that difficult, if you are writing C code anyway.
+
+// 6. Challenges: 
+//    * Porting old things takes time - exitisting tool limited.
+//    * Debugging is challenging.
+//    * For demanding optimizations memory require special attention.
+
+
+// CODE TIME! 
+
+   
+// The main() is run on the HOST, from which the CUDA kernels are called.      
 int 
 main()
 {
